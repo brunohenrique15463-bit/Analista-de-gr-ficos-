@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IA Trader Pro - Dashboard Financeiro</title>
+    <style>
+        :root { --green: #00e676; --red: #ff5252; --bg: #0a0a0a; --card: #1a1a1a; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 25px; border-radius: 15px; width: 380px; text-align: center; border: 1px solid #333; }
+        
+        /* Dashboard de Saldo */
+        .wallet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+        .stat-box { background: #252525; padding: 10px; border-radius: 8px; }
+        .stat-label { font-size: 0.7em; color: #aaa; text-transform: uppercase; }
+        .stat-value { font-weight: bold; font-size: 1.1em; }
+        
+        .main-balance { font-size: 2.2em; font-weight: bold; margin: 10px 0; color: #fff; }
+        .price { font-size: 1.8em; color: var(--green); margin-bottom: 15px; opacity: 0.9; }
+        
+        .status-bar { display: flex; justify-content: space-between; font-size: 0.75em; color: #888; margin-bottom: 15px; }
+        .signal { padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 15px; font-size: 0.9em; }
+        .buy { background: rgba(0, 230, 118, 0.1); color: var(--green); border: 1px solid var(--green); }
+        .sell { background: rgba(255, 82, 82, 0.1); color: var(--red); border: 1px solid var(--red); }
+        
+        .btn { width: 100%; padding: 12px; margin-top: 8px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-auth { background: #ff9800; color: black; }
+        .btn-start { background: #2979ff; color: white; }
+        .btn-start:disabled { background: #444; opacity: 0.5; }
+        
+        .online { color: var(--green); }
+        .offline { color: var(--red); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="status-bar">
+        <span>Rede: <b id="netStatus">ONLINE</b></span>
+        <span>Permissão: <b id="authState">NEGADA</b></span>
+    </div>
+
+    <div class="stat-label">Saldo Total Atual</div>
+    <div class="main-balance" id="balanceDisplay">R$ 1000,00</div>
+
+    <div class="wallet-grid">
+        <div class="stat-box">
+            <div class="stat-label">Ganhos (Win)</div>
+            <div class="stat-value" id="winDisplay" style="color: var(--green);">R$ 0,00</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Perdas (Loss)</div>
+            <div class="stat-value" id="lossDisplay" style="color: var(--red);">R$ 0,00</div>
+        </div>
+    </div>
+
+    <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
+
+    <div class="price" id="priceDisplay">R$ 0,00</div>
+    <div id="signalArea" class="signal">AGUARDANDO PERMISSÃO</div>
+
+    <button class="btn btn-auth" id="authBtn" onclick="requestPermission()">Dar Permissão de Compartilhamento</button>
+    <button class="btn btn-start" id="startBtn" onclick="toggleBot()" disabled>Iniciar IA Online</button>
+</div>
+
+<script>
+    let isBotActive = false;
+    let hasPermission = false;
+    let lastPrice = 0;
+
+    // Valores Financeiros
+    let saldoTotal = 1000.00;
+    let totalGanhos = 0.00;
+    let totalPerdas = 0.00;
+    const valorInvestimento = 50.00; // Valor fixo por operação
+
+    function updateFinanceDisplay() {
+        document.getElementById('balanceDisplay').innerText = `R$ ${saldoTotal.toFixed(2)}`;
+        document.getElementById('winDisplay').innerText = `R$ ${totalGanhos.toFixed(2)}`;
+        document.getElementById('lossDisplay').innerText = `R$ ${totalPerdas.toFixed(2)}`;
+    }
+
+    function updateOnlineStatus() {
+        const isOnline = navigator.onLine;
+        const netLabel = document.getElementById('netStatus');
+        netLabel.innerText = isOnline ? "ONLINE" : "OFFLINE";
+        netLabel.className = isOnline ? "online" : "offline";
+        if (!isOnline && isBotActive) stopBot();
+    }
+
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+
+    function requestPermission() {
+        if (confirm("Autorizar IA a operar e gerenciar saldo na NovaDexy?")) {
+            hasPermission = true;
+            document.getElementById('authState').innerText = "CONCEDIDA";
+            document.getElementById('authState').style.color = "#00e676";
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('authBtn').style.display = "none";
+            document.getElementById('signalArea').innerText = "PRONTO PARA OPERAR";
+        }
+    }
+
+    function executarOperacao(tipo, sucesso) {
+        if (sucesso) {
+            const lucro = valorInvestimento * 0.85; // Simulando Payout de 85%
+            saldoTotal += lucro;
+            totalGanhos += lucro;
+        } else {
+            saldoTotal -= valorInvestimento;
+            totalPerdas += valorInvestimento;
+        }
+        updateFinanceDisplay();
+    }
+
+    function runIA() {
+        if (!isBotActive || !navigator.onLine) return;
+
+        let currentPrice = (Math.random() * 10 + 150).toFixed(2);
+        document.getElementById('priceDisplay').innerText = `R$ ${currentPrice}`;
+        const area = document.getElementById('signalArea');
+        
+        if (lastPrice !== 0) {
+            const acertou = Math.random() > 0.4; // Simulação: IA tem 60% de assertividade
+
+            if (currentPrice > lastPrice) {
+                area.innerText = "IA: ALTA (CALL) - EXECUTADO";
+                area.className = "signal buy";
+                executarOperacao('compra', acertou);
+            } else {
+                area.innerText = "IA: BAIXA (PUT) - EXECUTADO";
+                area.className = "signal sell";
+                executarOperacao('venda', acertou);
+            }
+        }
+
+        lastPrice = currentPrice;
+        setTimeout(runIA, 3000); 
+    }
+
+    function toggleBot() {
+        isBotActive = !isBotActive;
+        const btn = document.getElementById('startBtn');
+        btn.innerText = isBotActive ? "Parar IA" : "Iniciar IA Online";
+        btn.style.background = isBotActive ? "#f44336" : "#2979ff";
+        if (isBotActive) runIA();
+    }
+
+    function stopBot() {
+        isBotActive = false;
+        document.getElementById('signalArea').innerText = "PAUSADO - SEM CONEXÃO";
+    }
+
+    updateOnlineStatus();
+    updateFinanceDisplay();
+</script>
+
+</body>
+</html>
